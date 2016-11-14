@@ -1,0 +1,7 @@
+<h2>No Access</h2>
+{{#if session.isAuthenticated}}
+<p>Hello {{session.currentUser.username}}, The requested site is not accessible to you. Please request access from the site administrator.</p>
+{{else}}
+<p>The requested site is not accessible.</p>
+{{/if}}
+{{outlet}}

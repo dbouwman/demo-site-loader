@@ -16,6 +16,19 @@ module.exports = function(environment) {
     APP: {
       // Here you can pass flags/options to your application instance
       // when it is created
+      domainServiceUrl:'http://servicesqa.arcgis.com/97KLIFOSt5CxbiRI/arcgis/rest/services/sitedomains/FeatureServer/0'
+    },
+    torii:{
+     sessionServiceName: 'session',
+     providers: {
+       'arcgis-oauth-bearer': {
+         apiKey: '1Y96wA5EAEJGdi9L', //demo-site-loader app
+         portalUrl: 'https://qaext.arcgis.com' //optional - defaults to https://arcgis.com
+       }
+     }
+   },
+   fastboot: {
+      hostWhitelist: [/.*/]
     }
   };
 

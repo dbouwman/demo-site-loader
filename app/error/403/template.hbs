@@ -1,0 +1,14 @@
+<div class="container">
+  <div class="col-sm-6">
+
+    <h2>Please Sign In...</h2>
+    <p>The site you are attempting to access is not public. Please signin using
+    your ArcGIS Online Organization credentials.</p>
+    <button class="btn btn-primary" type="button" {{action 'signin'}}>Show Sign In</button>
+
+  </div>
+  <div class="col-sm-6">
+    {{torii-iframe-placeholder}}
+  </div>
+</div>
+{{outlet}}
