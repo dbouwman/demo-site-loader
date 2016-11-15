@@ -6,8 +6,9 @@ export default Ember.Route.extend({
   headData: Ember.inject.service(),
   fastboot: Ember.inject.service(),
   isFastBoot: Ember.computed.reads('fastboot.isFastBoot'),
-  
-  beforeModel(){
+
+  beforeModel(transition){
+    //TODO Set the transition on the site-lookup service so we can retry
 
     // see if we can re-hydrate a session...
     return this.get('session').fetch()
@@ -17,6 +18,11 @@ export default Ember.Route.extend({
       .catch(() => {
         Ember.debug('No auth-info was found, user is anonymous... ');
       });
+  },
+  
+  renderTemplate (controller, model){
+    //if no access, render the sign-in template
+
   },
 
   /**
