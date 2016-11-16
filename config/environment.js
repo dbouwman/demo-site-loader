@@ -22,13 +22,16 @@ module.exports = function(environment) {
      sessionServiceName: 'session',
      providers: {
        'arcgis-oauth-bearer': {
-         apiKey: '1Y96wA5EAEJGdi9L', //demo-site-loader app
+         apiKey: 'SHOULD-NEVER-BE-USED', //demo-site-loader app
          portalUrl: 'https://qaext.arcgis.com' //optional - defaults to https://arcgis.com
        }
      }
    },
    fastboot: {
       hostWhitelist: [/.*/]
+    },
+    "ember-cli-head": {
+      suppressClearFastbootedHead:true
     }
   };
 

@@ -9,7 +9,7 @@ export default Ember.Route.extend({
 
   beforeModel(transition){
     //TODO Set the transition on the site-lookup service so we can retry
-
+    //this.set('siteLookup.previousTransition', transition);
     // see if we can re-hydrate a session...
     return this.get('session').fetch()
       .then(() => {
@@ -19,101 +19,109 @@ export default Ember.Route.extend({
         Ember.debug('No auth-info was found, user is anonymous... ');
       });
   },
-  
-  renderTemplate (controller, model){
-    //if no access, render the sign-in template
-
-  },
 
   /**
    * Lookup the site using the domain name
    */
   model() {
-    // not sure if this should be here or beforeModel...
+    Ember.debug('ApplicationRoute::model fired...');
     return this.get('siteLookup').getSite()
-      .then((site)=> {
-        // put the site into a cache...
-        this.set('siteLookup.site', site);
-        // set the css property in the head...
-        this.set('headData.css', site.data.values.css);
-        // return the site mainly so the promise resolves
-        // we could likely return {} here...
-        return site;
-      })
+      // .then((site)=> {
+      //   return site;
+      // })
       .catch((err)=>{
-        if(err.code === 404){
+        //something has gone wrong... return a model w/ a status
+        //so we can take action in the renderTemplate hook
+        return {
+          status: err.code || 500
+        };
 
-          // we got a 404 on the site request. This means there IS no site item
-          // we should send some telemetry about this sort of problem as it
-          // means that the domainLookup service is out of sync with items in AGO
-          Ember.debug('Got 404 trying to load site... redirecting to 404 route');
-          this.transitionTo('error.404');
-
-        }else if(err.code === 403){
-          if(!this.get('isFastBoot')){
-            // ok, AGO says the item it not accessible...
-            if(this.get('session.isAuthenticated')){
-              // if the session is already authenticated, then this user has no access...
-              this.transitionTo('noaccess');
-            }else{
-              // if the session is not auth'd, redirect to a route that will allow the user
-              // to sign in...
-              Ember.debug('Got 403 trying to load site... redirecting to a signin route');
-              this.transitionTo('error.403');
-            }
-          }else{
-            return {}; //allow the model hook to resolve so that page renders @ the server
-          }
-        } else {
-          // this is a general error route
-          Ember.debug('Got error trying to load site: ' + JSON.stringify(err));
-          this.transitionTo('error');
-        }
       });
+  },
+
+  /**
+   * Overridden so we can implement an inline-gateway
+   */
+  renderTemplate (controller, model){
+    Ember.debug('ApplicationRoute::renderTemplate fired...');
+    //if no access, render the sign-in template
+    Ember.debug('Application Route: RenderTemplate ' + model.status);
+    if(model.status === 200){
+      //only inject the headData if the source of the model was an xhr
+      //this prevents "fouc"
+      if(model.source === 'xhr'){
+        this.set('headData.css', model.data.values.css);
+      }
+      this.render();
+    }else{
+      if(model.status === 500){
+        this.render('gateway.error', {model:model});
+      }
+      if(this.get('isFastBoot')){
+        //in this case, we want to let the client-app handle things...
+        //so just render the loading view
+        this.render('gateway.loading');
+      }else{
+        if(model.status === 403){
+          if(this.get('session.isAuthenticated')){
+            this.render('gateway.noaccess');
+          }else{
+            this.render('gateway.403', {model: model});
+          }
+        }
+        if(model.status === 404 || model.status === 400){
+          this.render('gateway.404');
+        }
+      }
+
+    }
   },
 
   actions: {
     accessDenied: function() {
       this.transitionTo('signin');
     },
-    signin: function(){
-      this.get('session').open('arcgis-oauth-bearer')
-        .then((/*authorization*/) => {
-          Ember.debug('User successfully authenticated... redirecting to index... ');
-          Ember.debug('Session isAuthenticated: ' + this.get('session.isAuthenticated'));
-          // now get the site
-          return this.get('siteLookup').getSite()
-          .then((site)=> {
-            //hold the current site in a service of some sort...
-            this.set('siteLookup.site', site);
-            this.set('headData.css', site.data.values.css);
-            let previousTransition = this.get('siteLookup.previousTransition');
-            if(previousTransition){
-              previousTransition.retry();
-            }else{
-              // go to the index
-              this.transitionTo('index');
-            }
-          })
-          .catch((err)=>{
-            if(err.code === 404){
-              Ember.debug('Got 404 trying to load site... redirecting to 404 route');
-              this.transitionTo('error.404');
-            }else if(err.code === 403){
-              Ember.debug('Got 403 trying to load site... redirecting to a signin route');
-              this.transitionTo('error.403');
-            }else{
-              Ember.debug('Got error trying to load site: ' + JSON.stringify(err));
-              this.transitionTo('error');
-            }
-
-          });
-        })
-        .catch((err)=>{
-          Ember.debug('403 route - User authentication failed. ' + JSON.stringify(err));
-          this.transitionTo('noaccess');
+    /**
+     * This is handles the gateway signin process..
+     */
+     gatewaySignin: function(){
+       Ember.debug('ApplicationRoute::actions::GatewaySignin Fired...');
+       let domainInfo = this.get('siteLookup.domainInfo');
+       this.get('session').open('arcgis-oauth-bearer', {apiKey:domainInfo.clientKey})
+         .then((/*authorization*/) => {
+           this.get('siteLookup').getSite()
+           .then((site)=> {
+             // set the css property in the head...
+             Ember.debug('GatewaySignin got site with status ' + site.status);
+             if(site.status === 200){
+               this.set('headData.css', site.data.values.css);
+             }
+             this.set('model', site);
+             this.render();
+           })
+           .catch((err)=>{
+             this.set('model', {status:err.code || 500});
+             this.render('gateway.noaccess');
+           });
         });
     },
+    /**
+     * This is the generic sign-in at the top of the page.
+     */
+    signin: function(){
+      let clientKey = this.get('siteLookup.clientKey');
+      this.get('session').open('arcgis-oauth-bearer', {apiKey:clientKey})
+        .then((/*authorization*/) => {
+          Ember.debug('User successfully authenticated... ');
+        })
+        .catch((err)=>{
+          debugger;
+        });
+
+    },
+    /**
+     * This is the generic signout at the top of the page
+     */
     signout: function() {
       //depending on the type of auth, we need to do different things
       if(ENV.torii.providers['arcgis-oauth-bearer'].display && ENV.torii.providers['arcgis-oauth-bearer'].display === 'iframe'){

@@ -8,13 +8,9 @@ const Router = Ember.Router.extend({
 
 Router.map(function() {
   this.route('application-loading');
-  this.route('error', function() {
-    this.route('404');
-    this.route('403');
-  });
   this.route('child');
   this.route('signin');
-  this.route('noaccess');
+
 });
 
 export default Router;
