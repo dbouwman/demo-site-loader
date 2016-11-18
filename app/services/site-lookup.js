@@ -77,6 +77,7 @@ export default Ember.Service.extend({
         if(fsResponse.features.length){
           //shoebox the domain information so the client side can use it
           let domainInfo = fsResponse.features[0].attributes;
+          this.set('domainInfo', domainInfo);
           if(this.get('isFastBoot')){
             shoebox.put('domain-store',  {domainInfo:domainInfo});
           }
